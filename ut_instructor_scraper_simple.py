@@ -55,10 +55,21 @@ def scrape_instructors():
     
     # Wait for user to log in
     input("Press Enter after you've logged into UT Direct...")
-    
-    # Course number range - full range 00000 to 99999
-    start_unique = 0
-    end_unique = 100000
+
+    # Ask user for start/end of unique course number range
+    def ask_int(prompt, default, min_val, max_val):
+        while True:
+            raw = input(f"{prompt} (default {default:05d}): ").strip()
+            if raw == "":
+                return default
+            if raw.isdigit():
+                val = int(raw)
+                if min_val <= val <= max_val:
+                    return val
+            print(f"❌ Please enter a number between {min_val:05d} and {max_val:05d}, or press Enter for default.")
+
+    start_unique = ask_int("Enter starting unique number (00000–99999)", 0, 0, 99999)
+    end_unique = ask_int("Enter ending unique number EXCLUSIVE (must be > start, max 100000)", 100000, start_unique + 1, 100000)
     
     # Base URL with correct format
     base_url = "https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/{:05d}/"
@@ -66,14 +77,14 @@ def scrape_instructors():
     instructors = set()
     total_courses = end_unique - start_unique
     
-    print(f"📚 Scraping {total_courses} courses (00000-99999)...")
+    print(f"📚 Scraping {total_courses} courses ({start_unique:05d}-{end_unique - 1:05d})...")
     
     for i, unique in enumerate(range(start_unique, end_unique)):
         url = base_url.format(unique)
         
         # Progress indicator - show every page
         progress = (i / total_courses) * 100
-        print(f"📊 Progress: {progress:.3f}% ({i:05d}/{total_courses}) - Found {len(instructors)} instructors so far")
+        print(f"📊 Progress: {progress:.3f}% ({i+1:05d}/{total_courses:05d}) - Found {len(instructors)} instructors so far")
         
         # Save progress every 1000 courses
         if i > 0 and i % 1000 == 0:
