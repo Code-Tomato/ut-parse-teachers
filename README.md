@@ -1,32 +1,31 @@
-# UT Instructor Scraper Setup Instructions
+# UT Instructor Scraper Project
 
-This script scrapes instructor information from UT Austin's course schedule system. Follow these steps to set up and run the scraper on your computer.
+A comprehensive toolset for scraping instructor information from UT Austin's course schedule and directory system. This project consists of four main scripts that work together to collect, process, and organize instructor data.
 
-## Prerequisites
+## 🎯 Project Overview
 
-- **Python 3.8 or higher** (check with `python3 --version`)
-- **Chrome browser** installed on your computer
-- **UT Austin EID and password** (you'll need to authenticate with Duo)
+This project scrapes the Fall 2025 course schedule at UT Austin, extracts all instructor names, searches the UT directory for their contact information, and converts the results into a clean CSV format.
 
-## Step-by-Step Setup
+### Workflow Summary:
+1. **Course Scraper**: Scrapes all courses (00000-99999) from UT's course schedule
+2. **Directory Scraper**: Searches UT directory for each instructor's contact info
+3. **Combiner** (optional): Combines multiple scraping runs
+4. **VCF Converter**: Converts downloaded vCard files to CSV format
 
-### 1. Download the Files
-Make sure you have these files in a folder:
-- `ut_instructor_scraper_simple.py`
-- `requirements.txt`
+## 📋 Prerequisites
 
-### 2. Open Terminal/Command Prompt
-- **Mac/Linux**: Open Terminal
-- **Windows**: Open Command Prompt or PowerShell
+- **Python 3.8 or higher** (`python3 --version`)
+- **Chrome browser** installed
+- **UT Austin EID and password** (for authentication)
+- **Duo authentication** access
 
-### 3. Navigate to the Script Folder
+## 🚀 Quick Setup
+
+### 1. Initial Setup
 ```bash
-cd /path/to/your/script/folder
-```
-Replace `/path/to/your/script/folder` with the actual path where you saved the files.
+# Clone or download the project files
+cd /path/to/project
 
-### 4. Create a Virtual Environment
-```bash
 # Create virtual environment
 python3 -m venv venv
 
@@ -35,102 +34,245 @@ python3 -m venv venv
 source venv/bin/activate
 # On Windows:
 venv\Scripts\activate
-```
 
-You should see `(venv)` at the beginning of your command line when it's activated.
-
-### 5. Install Dependencies
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-This will install:
-- `selenium` (for web automation)
-- `pandas` (for data processing)
-- `webdriver-manager` (for Chrome driver management)
+### 2. Run the Complete Workflow
 
-### 6. Run the Scraper
+#### Step 1: Scrape Course Instructors
+```bash
+python ut_instructor_scraper_simple.py
+```
+- Follow the prompts to authenticate with UT Direct
+- Choose your scraping range (default: 00000-99999)
+- Results saved to Desktop as `UT_Fall2025_ScrapedInstructors.csv`
+
+#### Step 2: Search UT Directory
+```bash
+python ut_directory_scraper.py --in UT_Fall2025_ScrapedInstructors.csv --out ut_directory_results.csv
+```
+- Authenticate with UT Directory when browser opens
+- Searches for each instructor's contact information
+- Creates two files: confirmed matches and manual review cases
+
+#### Step 3: Convert vCard Files (if using vCard download option)
+```bash
+python vcf_to_csv.py all_people vcf_contacts.csv
+```
+- Converts downloaded .vcf files to CSV format
+- Extracts first name, last name, and email
+
+### 3. Optional: Combine Multiple Runs
+If you ran the course scraper multiple times with different ranges:
+```bash
+python combine_instructors.py
+```
+- Combines all `UT_Fall2025_ScrapedInstructors_Run*.csv` files
+- Removes duplicates and sorts alphabetically
+- Creates `UT_Fall2025_AllInstructors_Combined.csv`
+
+## 🔄 Complete Workflow Example
+
+Here's a typical workflow from start to finish:
+
+1. **Setup Environment**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # or venv\Scripts\activate on Windows
+   pip install -r requirements.txt
+   ```
+
+2. **Scrape Course Instructors** (2-4 hours)
+   ```bash
+   python ut_instructor_scraper_simple.py
+   # Authenticate with UT Direct when prompted
+   # Choose range 0-100000 (default)
+   # Results: UT_Fall2025_ScrapedInstructors.csv on Desktop
+   ```
+
+3. **Search UT Directory** (1-2 hours)
+   ```bash
+   python ut_directory_scraper.py --in UT_Fall2025_ScrapedInstructors.csv --out ut_directory_results.csv
+   # Authenticate with UT Directory when prompted
+   # Results: ut_directory_results.csv + manual review file
+   ```
+
+4. **Convert vCard Files** (if applicable)
+   ```bash
+   python vcf_to_csv.py all_people vcf_contacts.csv
+   # Results: vcf_contacts.csv with clean contact data
+   ```
+
+## 📁 Script Details
+
+### 1. `ut_instructor_scraper_simple.py`
+**Purpose**: Scrapes instructor names from UT's course schedule
+
+**Features**:
+- Scrapes courses from 00000 to 99999 (configurable range)
+- Handles authentication with UT Direct
+- Saves progress every 1000 courses
+- Supports multiple run modes (append, unique files, overwrite)
+- Robust error handling and retry logic
+
+**Output**: CSV with `FirstName` and `LastName` columns
+
+**Usage**:
 ```bash
 python ut_instructor_scraper_simple.py
 ```
 
-## First-Time Setup Process
+### 2. `ut_directory_scraper.py`
+**Purpose**: Searches UT directory for instructor contact information
 
-### 1. Choose Your Mode
-When you run the script, you'll see three options:
-- **Option 1**: Visible browser window (recommended for first time)
-- **Option 2**: Headless mode (faster, no visible window)
-- **Option 3**: Headless mode with debug output
+**Features**:
+- Accepts CSV input with instructor names
+- Auto-detects column names (FirstName, LastName, etc.)
+- Searches multiple name variants for better matches
+- Downloads vCard files for confirmed matches
+- Creates separate files for confirmed vs. manual review cases
 
-**For first-time users, choose Option 1** to see what's happening.
+**Output**: 
+- `ut_directory_results.csv` - Confirmed matches
+- `ut_directory_results_manual_review.csv` - Cases needing review
 
-### 2. Authentication Process
-1. A Chrome browser window will open
-2. Navigate to UT Direct login page
-3. Enter your UT EID and password
-4. Complete Duo authentication when prompted
-5. Once logged in, return to the terminal and press Enter
+**Usage**:
+```bash
+# Basic usage (auto-detects columns)
+python ut_directory_scraper.py --in UT_Fall2025_ScrapedInstructors.csv --out ut_directory_results.csv
 
-### 3. Configure Scraping Range
-- **Starting unique number**: Usually `0` (press Enter for default)
-- **Ending unique number**: Usually `100000` (press Enter for default)
-- This will scrape courses from 00000 to 99999
+# Specify column names
+python ut_directory_scraper.py --in input.csv --first-col FirstName --last-col LastName --out results.csv
 
-## What the Script Does
+# Single column with full names
+python ut_directory_scraper.py --in input.csv --single-col Instructor --out results.csv
+```
 
-1. **Logs into UT Direct** using your credentials
-2. **Scrapes course information** for the specified range
-3. **Extracts instructor names** from each course
-4. **Saves results** to a CSV file on your Desktop
-5. **Opens the file** automatically when complete
+### 3. `combine_instructors.py`
+**Purpose**: Combines multiple instructor CSV files from different scraping runs
 
-## Output
+**Features**:
+- Automatically finds files matching pattern `UT_Fall2025_ScrapedInstructors_Run*.csv`
+- Removes duplicate instructors
+- Sorts by last name, then first name
+- Provides statistics on the combination process
 
-The script creates a file called `UT_Fall2025_ScrapedInstructors.csv` on your Desktop with columns:
-- `FirstName`: Instructor's first name
-- `LastName`: Instructor's last name
+**Output**: `UT_Fall2025_AllInstructors_Combined.csv`
 
-## Troubleshooting
+**Usage**:
+```bash
+python combine_instructors.py
+```
 
-### Common Issues:
+### 4. `vcf_to_csv.py`
+**Purpose**: Converts downloaded vCard (.vcf) files to CSV format
 
-**"Chrome driver not found"**
-- The script automatically downloads the correct Chrome driver
-- Make sure you have Chrome browser installed
+**Features**:
+- Processes all .vcf files in a specified folder
+- Extracts first name, last name, and email
+- Skips entries without email addresses
+- Sorts results alphabetically
 
-**"Authentication failed"**
-- Make sure you complete the Duo authentication
-- Try running with Option 1 (visible mode) first
+**Output**: CSV with `First Name`, `Last Name`, and `Email` columns
 
-**"Permission denied"**
-- Make sure you're in the correct directory
-- Check that the virtual environment is activated
+**Usage**:
+```bash
+# Use default folder 'all_people'
+python vcf_to_csv.py
 
-**"Module not found"**
-- Make sure you installed requirements: `pip install -r requirements.txt`
+# Specify folder and output file
+python vcf_to_csv.py /path/to/vcf/folder output_contacts.csv
+```
+
+## 🔧 Configuration Options
+
+### Course Scraper Options
+- **Scraping Range**: Customize start/end course numbers
+- **File Handling**: Choose between append, unique files, or overwrite
+- **Debug Mode**: Enable detailed logging for troubleshooting
+
+### Directory Scraper Options
+- **Column Detection**: Auto-detects common column names or specify manually
+- **Name Variants**: Automatically tries different name formats
+- **Output Format**: Separate files for confirmed vs. manual review cases
+
+## 📊 Output Files
+
+### Course Scraper Output
+- `UT_Fall2025_ScrapedInstructors.csv` - Main output file
+- `UT_Fall2025_ScrapedInstructors_Run*.csv` - Individual run files (if using unique mode)
+
+### Directory Scraper Output
+- `ut_directory_results.csv` - Confirmed directory matches
+- `ut_directory_results_manual_review.csv` - Cases requiring manual review
+- `all_people/` folder - Downloaded vCard files (if enabled)
+
+### VCF Converter Output
+- `vcf_contacts.csv` - Converted contact information
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Authentication Problems**
+- Ensure you complete Duo authentication
+- Try running with visible browser mode first
+- Check that your UT credentials work in regular browser
+
+**Chrome Driver Issues**
+- Script automatically downloads correct Chrome driver
+- Ensure Chrome browser is installed and up to date
+
+**File Permission Errors**
 - Make sure virtual environment is activated
+- Check that you have write permissions in the directory
 
-### Performance Tips:
+**No Results Found**
+- Verify the input CSV format matches expected columns
+- Check that the scraping range includes valid course numbers
+- Ensure you're properly authenticated with UT systems
 
-- **First run**: Use Option 1 (visible mode) to authenticate
-- **Subsequent runs**: Use Option 2 (headless mode) for speed
-- **Large ranges**: The script saves progress every 1000 courses
-- **Interruption**: You can stop with Ctrl+C and restart from where you left off
+### Performance Tips
+- Use headless mode for faster execution after initial setup
+- The course scraper saves progress every 1000 courses
+- You can interrupt and restart from where you left off
+- For large datasets, consider running in smaller batches
 
-## Security Notes
+## 🔒 Security & Privacy
 
-- The script only accesses public course information
-- Your login credentials are not stored
-- The script uses your existing browser session
+- Scripts only access public course information
+- Login credentials are not stored
+- Uses existing browser sessions for authentication
 - No data is sent to external servers
+- All processing happens locally on your machine
 
-## Support
+## 📈 Expected Results
+
+### Course Scraper
+- **Input**: Course numbers 00000-99999
+- **Output**: ~1000-2000 unique instructor names
+- **Time**: 2-4 hours for full range
+
+### Directory Scraper
+- **Input**: Instructor names from course scraper
+- **Output**: Contact information for ~60-80% of instructors
+- **Time**: 1-2 hours depending on number of instructors
+
+### VCF Converter
+- **Input**: Downloaded vCard files
+- **Output**: Clean CSV with contact information
+- **Time**: Seconds to minutes depending on file count
+
+## 🤝 Support
 
 If you encounter issues:
-1. Make sure all prerequisites are installed
-2. Try running with Option 1 first
-3. Check that your UT credentials work in a regular browser
+1. Check that all prerequisites are installed
+2. Verify your UT credentials work in a regular browser
+3. Try running with visible browser mode first
 4. Ensure you have a stable internet connection
+5. Check the troubleshooting section above
 
-The script is designed to be robust and will continue even if some courses fail to load.
+The scripts are designed to be robust and will continue even if some individual requests fail.
 

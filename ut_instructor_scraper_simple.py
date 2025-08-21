@@ -7,145 +7,62 @@ import pandas as pd
 import os
 import time
 import webbrowser
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
-# Global variables for session management
-login_driver = None
-session_cookies = None
-
-def get_driver(headless=True, use_existing_session=False):
-    """Get or create a webdriver instance for the current thread"""
-    global login_driver, session_cookies
-    
-    if use_existing_session and login_driver:
-        # Use the existing logged-in driver
-        return login_driver
-    
-    # Create new driver
-    options = Options()
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    
-    if headless:
-        options.add_argument("--headless")
-        options.add_argument("--disable-web-security")
-        options.add_argument("--allow-running-insecure-content")
-        options.add_argument("--disable-features=VizDisplayCompositor")
-        options.add_argument("--window-size=800,600")
-    else:
-        # For visible mode, use smaller windows and position them
-        options.add_argument("--window-size=600,400")
-        # Try to use tabs instead of new windows
-        options.add_argument("--new-window")
-    
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    
-    # Apply session cookies if available
-    if session_cookies and not use_existing_session:
-        try:
-            driver.get("https://utdirect.utexas.edu/")
-            for cookie in session_cookies:
-                driver.add_cookie(cookie)
-            print(f"🍪 Applied {len(session_cookies)} cookies to new browser")
-        except Exception as e:
-            print(f"⚠️  Could not apply cookies: {e}")
-    
-    return driver
-
-def scrape_courses_batch(course_numbers, headless=True, debug=False, use_existing_session=False):
-    """Scrape a batch of courses using a single browser instance"""
-    global login_driver
-    
+def scrape_single_course(driver, unique, debug=False):
+    """Scrape a single course"""
     try:
-        # Get a driver (either new or existing logged-in one)
-        driver = get_driver(headless, use_existing_session)
+        url = f"https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/{unique:05d}/"
         
-        all_instructors = []
-        
-        for i, unique in enumerate(course_numbers):
+        # Add timeout and retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                url = f"https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/{unique:05d}/"
-                
-                # Add timeout and retry logic
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        driver.set_page_load_timeout(10)  # 10 second timeout
-                        driver.get(url)
-                        
-                        # Dynamic delay based on attempt number
-                        if attempt == 0:
-                            time.sleep(0.1)  # Fast for first attempt
-                        else:
-                            time.sleep(0.5 * (attempt + 1))  # Longer delays for retries
-                        
-                        break  # Success, exit retry loop
-                        
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            if debug:
-                                print(f"⚠️  Course {unique:05d} attempt {attempt + 1} failed: {e}, retrying...")
-                            time.sleep(1)  # Wait before retry
-                            continue
-                        else:
-                            raise e  # Last attempt failed
-                
-                # Clear browser cache periodically to prevent slowdown
-                if i > 0 and i % 50 == 0:
-                    try:
-                        driver.delete_all_cookies()
-                        driver.execute_script("window.localStorage.clear();")
-                        driver.execute_script("window.sessionStorage.clear();")
-                        if debug:
-                            print(f"🧹 Cleared browser cache after {i} courses")
-                    except:
-                        pass
-                
-                # Debug: Print page title and URL
-                if debug:
-                    print(f"🔍 Course {unique:05d}: {driver.title} | {driver.current_url}")
-                
-                # Check if there's an error message (course doesn't exist)
-                error_elements = driver.find_elements(By.XPATH, "//div[@class='error']")
-                if error_elements:
-                    if debug:
-                        print(f"❌ Course {unique:05d}: Course doesn't exist")
-                    continue  # Course doesn't exist
-                
-                # Look for instructor names in the table
-                instructor_cells = driver.find_elements(By.XPATH, "//td[@data-th='Instructor']")
-                
-                if debug:
-                    print(f"📊 Course {unique:05d}: Found {len(instructor_cells)} instructor cells")
-                
-                for cell in instructor_cells:
-                    # Get all text content from the cell
-                    cell_text = cell.text.strip()
-                    if cell_text:
-                        # Split by lines and process each instructor
-                        instructors_in_cell = cell_text.split('\n')
-                        for instructor in instructors_in_cell:
-                            instructor = instructor.strip()
-                            if instructor and instructor not in ["Staff", "TBA", ""]:
-                                all_instructors.append(instructor)
-                
-                if debug and all_instructors:
-                    print(f"👨‍🏫 Course {unique:05d}: Found instructors: {all_instructors[-len(instructor_cells):]}")
-                    
+                driver.set_page_load_timeout(30)
+                driver.get(url)
+                time.sleep(0.3)  # Wait for page to load
+                break
             except Exception as e:
-                print(f"⚠️  Skipped course {unique:05d}: {e}")
-                continue
+                if attempt < max_retries - 1:
+                    if debug:
+                        print(f"⚠️  Course {unique:05d} attempt {attempt + 1} failed: {e}, retrying...")
+                    time.sleep(1)
+                    continue
+                else:
+                    raise e
         
-        return all_instructors
+        # Check if there's an error message (course doesn't exist)
+        error_elements = driver.find_elements(By.XPATH, "//div[@class='error']")
+        if error_elements:
+            if debug:
+                print(f"❌ Course {unique:05d}: Course doesn't exist")
+            return []
+        
+        # Look for instructor names in the table
+        instructor_cells = driver.find_elements(By.XPATH, "//td[@data-th='Instructor']")
+        
+        if debug:
+            print(f"📊 Course {unique:05d}: Found {len(instructor_cells)} instructor cells")
+        
+        course_instructors = []
+        for cell in instructor_cells:
+            cell_text = cell.text.strip()
+            if cell_text:
+                instructors_in_cell = cell_text.split('\n')
+                for instructor in instructors_in_cell:
+                    instructor = instructor.strip()
+                    if instructor and instructor not in ["Staff", "TBA", ""]:
+                        course_instructors.append(instructor)
+        
+        if debug and course_instructors:
+            print(f"👨‍🏫 Course {unique:05d}: Found instructors: {course_instructors}")
+        
+        return course_instructors
         
     except Exception as e:
-        print(f"⚠️  Error in batch processing: {e}")
+        print(f"⚠️  Skipped course {unique:05d}: {e}")
         return []
 
-def save_progress(instructors):
+def save_progress(instructors, append_mode=False, run_id=None):
     """Save current progress to CSV file"""
     if instructors:
         cleaned = sorted(list(instructors))
@@ -163,19 +80,47 @@ def save_progress(instructors):
         
         df = pd.DataFrame(split_names, columns=["FirstName", "LastName"])
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-        file_path = os.path.join(desktop, "UT_Fall2025_ScrapedInstructors.csv")
-        df.to_csv(file_path, index=False)
         
-        print(f"💾 Progress saved: {len(split_names)} instructors to CSV")
+        if append_mode and run_id is None:
+            # Append mode - add to existing file
+            base_file_path = os.path.join(desktop, "UT_Fall2025_ScrapedInstructors.csv")
+            
+            if os.path.exists(base_file_path):
+                # Read existing data
+                existing_df = pd.read_csv(base_file_path)
+                # Combine with new data
+                combined_df = pd.concat([existing_df, df], ignore_index=True)
+                # Remove duplicates
+                combined_df = combined_df.drop_duplicates(subset=['FirstName', 'LastName'])
+                # Save combined data
+                combined_df.to_csv(base_file_path, index=False)
+                print(f"💾 Appended {len(split_names)} new instructors to existing file. Total: {len(combined_df)} instructors")
+            else:
+                # Create new file
+                df.to_csv(base_file_path, index=False)
+                print(f"💾 Created new file with {len(split_names)} instructors")
+        else:
+            # Unique filename mode
+            if run_id:
+                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_Run{run_id}.csv")
+            else:
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_{timestamp}.csv")
+            
+            df.to_csv(file_path, index=False)
+            print(f"💾 Progress saved: {len(split_names)} instructors to {os.path.basename(file_path)}")
 
 def scrape_instructors():
-    """Main scraping function with concurrent processing"""
-    global login_driver, session_cookies
+    """Main scraping function - simple and reliable"""
+    print("🚀 Starting UT Instructor Scraper - Simple & Reliable Version")
     
-    print("🚀 Starting UT Instructor Scraper...")
+    # Configuration
+    debug_mode = False
     
-    # Setup initial Chrome driver for login
-    print("📥 Setting up Chrome driver for login...")
+    print("🔐 Setting up authentication...")
+    print("📥 Setting up Chrome driver...")
+    
+    # Setup Chrome driver
     options = Options()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -183,69 +128,31 @@ def scrape_instructors():
     options.add_argument("--window-size=1920,1080")
     
     service = Service(ChromeDriverManager().install())
-    login_driver = webdriver.Chrome(service=service, options=options)
+    driver = webdriver.Chrome(service=service, options=options)
     
     print("✅ Chrome started successfully!")
     print("🔐 Please log into UT Direct when the browser opens...")
+    print("📱 You'll need to complete Duo authentication when prompted.")
     
     # Open UT Direct login page
-    login_driver.get("https://utdirect.utexas.edu/")
+    driver.get("https://utdirect.utexas.edu/")
     
     # Wait for user to log in
-    input("Press Enter after you've logged into UT Direct...")
+    input("Press Enter after you've completed the Duo authentication and are logged into UT Direct...")
     
-    # Store the login driver globally for reuse
-    session_cookies = None
+    # Test if we can access a protected page
+    driver.get("https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/00001/")
+    time.sleep(2)
     
-    try:
-        session_cookies = login_driver.get_cookies()
-        print(f"🍪 Captured {len(session_cookies)} cookies from login session")
-        
-        # Test if we can access a protected page
-        login_driver.get("https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/00001/")
-        time.sleep(1)
-        
-        # Check if we're still logged in
-        if "login" in login_driver.current_url.lower() or "auth" in login_driver.current_url.lower():
-            print("⚠️  Warning: Login session may not be valid.")
-        else:
-            print("✅ Login session confirmed - will reuse this browser for scraping")
-            
-    except Exception as e:
-        print(f"⚠️  Could not capture cookies: {e}")
-        session_cookies = None
-    
-    print("🔍 Login successful! The browser window will stay open for reference.")
-    print("💡 You can keep it open to monitor the scraping process or close it manually.")
-    
-    # Ask user about scraping options
-    print("\n🔧 Configuration Options:")
-    print("1. Use existing logged-in browser (fastest, single window)")
-    print("2. Create new headless browsers (faster, no visible windows)")
-    print("3. Create new visible browsers (slower, multiple windows)")
-    
-    mode_input = input("Choose mode (1/2/3, default: 1): ").strip()
-    
-    if mode_input == "2":
-        headless_mode = True
-        use_existing_session = False
-        print("🚀 Starting with new headless browsers...")
-    elif mode_input == "3":
-        headless_mode = False
-        use_existing_session = False
-        print("🚀 Starting with new visible browser windows...")
+    # Check if we're still logged in
+    if "login" in driver.current_url.lower() or "auth" in driver.current_url.lower():
+        print("⚠️  Warning: Login session may not be valid.")
+        print("🔐 Please make sure you're properly logged in before continuing.")
+        input("Press Enter to continue anyway, or Ctrl+C to exit...")
     else:
-        headless_mode = False
-        use_existing_session = True
-        print("🚀 Starting with existing logged-in browser...")
+        print("✅ Login session confirmed!")
     
-    debug_input = input("Enable debug output? (y/n, default: n): ").strip().lower()
-    debug_mode = debug_input == 'y'
-    
-    if debug_mode:
-        print("🐛 Debug mode enabled - you'll see detailed output for each course")
-    
-    # Don't close the login driver - let user decide when to close it
+    print("🔍 Login successful! Starting scraping process.")
 
     # Ask user for start/end of unique course number range
     def ask_int(prompt, default, min_val, max_val):
@@ -262,44 +169,61 @@ def scrape_instructors():
     start_unique = ask_int("Enter starting unique number (00000–99999)", 0, 0, 99999)
     end_unique = ask_int("Enter ending unique number EXCLUSIVE (must be > start, max 100000)", 100000, start_unique + 1, 100000)
     
+    # Ask about file handling for multiple runs
+    print("\n📁 File Handling for Multiple Runs:")
+    print("1. Append to existing file (combine results from multiple runs)")
+    print("2. Create unique filename for this run")
+    print("3. Overwrite existing file (default behavior)")
+    
+    file_choice = input("Choose file handling (1/2/3, default 3): ").strip()
+    
+    append_mode = False
+    run_id = None
+    
+    if file_choice == "1":
+        append_mode = True
+        print("✅ Will append results to existing file")
+    elif file_choice == "2":
+        run_id = input("Enter run ID (e.g., 'A', 'B', '1', '2'): ").strip()
+        if not run_id:
+            run_id = time.strftime("%Y%m%d_%H%M%S")
+        print(f"✅ Will create unique file: UT_Fall2025_ScrapedInstructors_Run{run_id}.csv")
+    else:
+        print("✅ Will overwrite existing file (default)")
+    
     instructors = set()
     total_courses = end_unique - start_unique
     processed_count = 0
     
     print(f"📚 Scraping {total_courses} courses ({start_unique:05d}-{end_unique - 1:05d})...")
+    print("💡 You can watch the scraping process in the browser window!")
+    print("💡 The browser will stay open throughout the entire process.")
     
-    # Process courses in batches
-    batch_size = 20  # Process 20 courses at a time
-    all_course_numbers = list(range(start_unique, end_unique))
+    try:
+        for unique in range(start_unique, end_unique):
+            course_instructors = scrape_single_course(driver, unique, debug_mode)
+            
+            # Add to our collection
+            for instructor in course_instructors:
+                instructors.add(instructor)
+            
+            processed_count += 1
+            
+            # Progress indicator every 10 courses
+            if processed_count % 10 == 0:
+                progress = (processed_count / total_courses) * 100
+                print(f"📊 Progress: {progress:.1f}% ({processed_count:05d}/{total_courses:05d}) - Found {len(instructors)} instructors so far")
+            
+            # Save progress every 1000 courses
+            if processed_count > 0 and processed_count % 1000 == 0:
+                save_progress(instructors, append_mode, run_id)
     
-    for i in range(0, len(all_course_numbers), batch_size):
-        batch = all_course_numbers[i:i + batch_size]
-        processed_count += len(batch)
-        
-        print(f"📦 Processing batch {i//batch_size + 1}/{(len(all_course_numbers) + batch_size - 1)//batch_size} (courses {batch[0]:05d}-{batch[-1]:05d})")
-        
-        # Scrape this batch
-        batch_instructors = scrape_courses_batch(batch, headless_mode, debug_mode, use_existing_session)
-        
-        # Add to our collection
-        for instructor in batch_instructors:
-            instructors.add(instructor)
-        
-        # Progress indicator
-        progress = (processed_count / total_courses) * 100
-        print(f"📊 Progress: {progress:.3f}% ({processed_count:05d}/{total_courses:05d}) - Found {len(instructors)} instructors so far")
-        
-        # Save progress every 1000 courses
-        if processed_count > 0 and processed_count % 1000 == 0:
-            save_progress(instructors)
+    except KeyboardInterrupt:
+        print("\n⚠️  Scraping interrupted by user")
+        print(f"📊 Partial results: {len(instructors)} instructors found so far")
     
-    # Clean up drivers
-    if not use_existing_session:
-        try:
-            if login_driver:
-                login_driver.quit()
-        except:
-            pass
+    except Exception as e:
+        print(f"⚠️  Error during scraping: {e}")
     
     print(f"✅ Scraping complete! Found {len(instructors)} unique instructors")
     
@@ -322,10 +246,37 @@ def scrape_instructors():
     if split_names:
         df = pd.DataFrame(split_names, columns=["FirstName", "LastName"])
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-        file_path = os.path.join(desktop, "UT_Fall2025_ScrapedInstructors.csv")
-        df.to_csv(file_path, index=False)
         
-        print(f"💾 Saved {len(split_names)} instructors to: {file_path}")
+        if append_mode:
+            # Append mode
+            base_file_path = os.path.join(desktop, "UT_Fall2025_ScrapedInstructors.csv")
+            
+            if os.path.exists(base_file_path):
+                # Read existing data
+                existing_df = pd.read_csv(base_file_path)
+                # Combine with new data
+                combined_df = pd.concat([existing_df, df], ignore_index=True)
+                # Remove duplicates
+                combined_df = combined_df.drop_duplicates(subset=['FirstName', 'LastName'])
+                # Save combined data
+                combined_df.to_csv(base_file_path, index=False)
+                print(f"💾 Final results: {len(split_names)} new instructors added. Total: {len(combined_df)} instructors")
+            else:
+                # Create new file
+                df.to_csv(base_file_path, index=False)
+                print(f"💾 Created new file with {len(split_names)} instructors")
+            
+            file_path = base_file_path
+        else:
+            # Unique filename mode
+            if run_id:
+                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_Run{run_id}.csv")
+            else:
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_{timestamp}.csv")
+            
+            df.to_csv(file_path, index=False)
+            print(f"💾 Saved {len(split_names)} instructors to: {os.path.basename(file_path)}")
         
         # Open the file
         try:
@@ -334,6 +285,8 @@ def scrape_instructors():
             print(f"📁 File saved to: {file_path}")
     else:
         print("❌ No instructor data found!")
+    
+    print("🔍 Browser window will remain open. You can close it manually when done.")
 
 if __name__ == "__main__":
     scrape_instructors()
