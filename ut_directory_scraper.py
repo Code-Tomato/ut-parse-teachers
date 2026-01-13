@@ -1,8 +1,8 @@
 
 # ut_directory_scraper.py
 # Usage examples:
-#   python ut_directory_scraper.py --in UT_Fall2025_AllInstructors_Combined.csv
-#   python ut_directory_scraper.py --in UT_Fall2025_AllInstructors_Combined.csv --first-col FirstName --last-col LastName --middle-col MI --out ut_directory_results.csv
+#   python ut_directory_scraper.py --in UT_Spring2026_AllInstructors_Combined.csv
+#   python ut_directory_scraper.py --in UT_Spring2026_AllInstructors_Combined.csv --first-col FirstName --last-col LastName --middle-col MI --out ut_directory_results.csv
 #
 # Features:
 # - Accepts a UT-format CSV directly (First/Last columns; optional Middle/MI; or a single "Instructor"/"Name" column).
@@ -481,7 +481,7 @@ def read_names_from_csv(path: str, first_col: Optional[str], middle_col: Optiona
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--in", dest="in_csv", required=True, help="Input UT CSV (e.g., UT_Fall2025_AllInstructors_Combined.csv)")
+    ap.add_argument("--in", dest="in_csv", required=True, help="Input UT CSV (e.g., UT_Spring2026_AllInstructors_Combined.csv)")
     ap.add_argument("--out", dest="out_csv", default="ut_directory_results.csv")
     ap.add_argument("--first-col", dest="first_col", default=None, help="Column name for first name (optional if autodetect works)")
     ap.add_argument("--middle-col", dest="middle_col", default=None, help="Column name for middle/MI (optional)")

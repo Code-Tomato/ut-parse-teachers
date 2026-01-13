@@ -11,7 +11,7 @@ import webbrowser
 def scrape_single_course(driver, unique, debug=False):
     """Scrape a single course"""
     try:
-        url = f"https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/{unique:05d}/"
+        url = f"https://utdirect.utexas.edu/apps/registrar/course_schedule/20262/{unique:05d}/"
         
         # Add timeout and retry logic
         max_retries = 3
@@ -83,7 +83,7 @@ def save_progress(instructors, append_mode=False, run_id=None):
         
         if append_mode and run_id is None:
             # Append mode - add to existing file
-            base_file_path = os.path.join(desktop, "UT_Fall2025_ScrapedInstructors.csv")
+            base_file_path = os.path.join(desktop, "UT_Spring2026_ScrapedInstructors.csv")
             
             if os.path.exists(base_file_path):
                 # Read existing data
@@ -102,10 +102,10 @@ def save_progress(instructors, append_mode=False, run_id=None):
         else:
             # Unique filename mode
             if run_id:
-                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_Run{run_id}.csv")
+                file_path = os.path.join(desktop, f"UT_Spring2026_ScrapedInstructors_Run{run_id}.csv")
             else:
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_{timestamp}.csv")
+                file_path = os.path.join(desktop, f"UT_Spring2026_ScrapedInstructors_{timestamp}.csv")
             
             df.to_csv(file_path, index=False)
             print(f"💾 Progress saved: {len(split_names)} instructors to {os.path.basename(file_path)}")
@@ -141,7 +141,7 @@ def scrape_instructors():
     input("Press Enter after you've completed the Duo authentication and are logged into UT Direct...")
     
     # Test if we can access a protected page
-    driver.get("https://utdirect.utexas.edu/apps/registrar/course_schedule/20259/00001/")
+    driver.get("https://utdirect.utexas.edu/apps/registrar/course_schedule/20262/00001/")
     time.sleep(2)
     
     # Check if we're still logged in
@@ -187,7 +187,7 @@ def scrape_instructors():
         run_id = input("Enter run ID (e.g., 'A', 'B', '1', '2'): ").strip()
         if not run_id:
             run_id = time.strftime("%Y%m%d_%H%M%S")
-        print(f"✅ Will create unique file: UT_Fall2025_ScrapedInstructors_Run{run_id}.csv")
+        print(f"✅ Will create unique file: UT_Spring2026_ScrapedInstructors_Run{run_id}.csv")
     else:
         print("✅ Will overwrite existing file (default)")
     
@@ -249,7 +249,7 @@ def scrape_instructors():
         
         if append_mode:
             # Append mode
-            base_file_path = os.path.join(desktop, "UT_Fall2025_ScrapedInstructors.csv")
+            base_file_path = os.path.join(desktop, "UT_Spring2026_ScrapedInstructors.csv")
             
             if os.path.exists(base_file_path):
                 # Read existing data
@@ -270,10 +270,10 @@ def scrape_instructors():
         else:
             # Unique filename mode
             if run_id:
-                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_Run{run_id}.csv")
+                file_path = os.path.join(desktop, f"UT_Spring2026_ScrapedInstructors_Run{run_id}.csv")
             else:
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                file_path = os.path.join(desktop, f"UT_Fall2025_ScrapedInstructors_{timestamp}.csv")
+                file_path = os.path.join(desktop, f"UT_Spring2026_ScrapedInstructors_{timestamp}.csv")
             
             df.to_csv(file_path, index=False)
             print(f"💾 Saved {len(split_names)} instructors to: {os.path.basename(file_path)}")

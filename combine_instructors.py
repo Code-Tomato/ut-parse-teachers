@@ -7,7 +7,7 @@ def combine_instructor_files():
     print("🔗 Combining all instructor CSV files...")
     
     # Find all CSV files in the current directory
-    csv_files = glob.glob("UT_Fall2025_ScrapedInstructors_Run*.csv")
+    csv_files = glob.glob("UT_Spring2026_ScrapedInstructors_Run*.csv")
     
     if not csv_files:
         print("❌ No instructor CSV files found!")
@@ -54,7 +54,7 @@ def combine_instructor_files():
     combined_df = combined_df.sort_values(['LastName', 'FirstName']).reset_index(drop=True)
     
     # Save the combined file
-    output_file = "UT_Fall2025_AllInstructors_Combined.csv"
+    output_file = "UT_Spring2026_AllInstructors_Combined.csv"
     combined_df.to_csv(output_file, index=False)
     
     print(f"\n✅ Successfully combined all files!")

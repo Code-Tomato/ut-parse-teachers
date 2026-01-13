@@ -5,82 +5,62 @@ A comprehensive toolset for scraping instructor information from UT Austin's cou
 ## 🎯 Project Overview
 
 This project scrapes the Fall 2025 course schedule at UT Austin, extracts all instructor names, searches the UT directory for their contact information, and converts the results into a clean CSV format.
+This project scrapes the Spring 2026 course schedule at UT Austin, extracts all instructor names, searches the UT directory for their contact information, and converts the results into a clean CSV format.
 
 ### Workflow Summary:
 1. **Course Scraper**: Scrapes all courses (00000-99999) from UT's course schedule
 2. **Directory Scraper**: Searches UT directory for each instructor's contact info
 3. **Combiner** (optional): Combines multiple scraping runs
-4. **VCF Converter**: Converts downloaded vCard files to CSV format
-
-## 📋 Prerequisites
+Results saved to Desktop as `UT_Spring2026_ScrapedInstructors.csv`
 
 - **Python 3.8 or higher** (`python3 --version`)
 - **Chrome browser** installed
 - **UT Austin EID and password** (for authentication)
 - **Duo authentication** access
-
-## 🚀 Quick Setup
-
+```bash
+python ut_directory_scraper.py --in UT_Spring2026_ScrapedInstructors.csv --out ut_directory_results.csv
+```
 ### 1. Initial Setup
 ```bash
 # Clone or download the project files
 cd /path/to/project
 
-# Create virtual environment
-python3 -m venv venv
-
+Combines all `UT_Spring2026_ScrapedInstructors_Run*.csv` files
+ Removes duplicates and sorts alphabetically
+ Creates `UT_Spring2026_AllInstructors_Combined.csv`
 # Activate virtual environment
 # On Mac/Linux:
 source venv/bin/activate
 # On Windows:
 venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-```
+Combines all `UT_Spring2026_ScrapedInstructors_Run*.csv` files
+ Removes duplicates and sorts alphabetically
+ Creates `UT_Spring2026_AllInstructors_Combined.csv`
 
 ### 2. Run the Complete Workflow
 
 #### Step 1: Scrape Course Instructors
-```bash
-python ut_instructor_scraper_simple.py
+`UT_Spring2026_ScrapedInstructors.csv` - Main output file
+`UT_Spring2026_ScrapedInstructors_Run*.csv` - Individual run files (if using unique mode)
 ```
 - Follow the prompts to authenticate with UT Direct
-- Choose your scraping range (default: 00000-99999)
-- Results saved to Desktop as `UT_Fall2025_ScrapedInstructors.csv`
-
 #### Step 2: Search UT Directory
 ```bash
-python ut_directory_scraper.py --in UT_Fall2025_ScrapedInstructors.csv --out ut_directory_results.csv
 ```
 - Authenticate with UT Directory when browser opens
 - Searches for each instructor's contact information
 - Creates two files: confirmed matches and manual review cases
-
-#### Step 3: Convert vCard Files (if using vCard download option)
-```bash
 python vcf_to_csv.py all_people vcf_contacts.csv
 ```
-- Converts downloaded .vcf files to CSV format
-- Extracts first name, last name, and email
-
 ### 3. Optional: Combine Multiple Runs
 If you ran the course scraper multiple times with different ranges:
 ```bash
 python combine_instructors.py
-```
-- Combines all `UT_Fall2025_ScrapedInstructors_Run*.csv` files
-- Removes duplicates and sorts alphabetically
 - Creates `UT_Fall2025_AllInstructors_Combined.csv`
 
-## 🔄 Complete Workflow Example
-
-Here's a typical workflow from start to finish:
 
 1. **Setup Environment**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # or venv\Scripts\activate on Windows
    pip install -r requirements.txt
    ```
 
